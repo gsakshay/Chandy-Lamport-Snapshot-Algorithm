@@ -6,23 +6,36 @@ The Chandi-Lamport Algorithm is a distributed algorithm for recording a consiste
 
 This specific implementation in Go follows the core principles of the algorithm, focusing on the snapshot capturing of the process state and channel states between them.
 
-### Components of the Algorithm:
+## Key Algorithmic Logic
 
-1. **Process State (`Sp`)**: Each process records its state as a monotonically increasing integer starting at 0.
-2. **Channel State (`Cxy`)**: Each process maintains channels to communicate with other processes. A channel is a FIFO queue that stores the messages exchanged between processes.
-3. **Marker Messages**: A special message used to initiate and propagate the snapshot among all processes. When a process receives a marker for the first time, it records its state and begins tracking messages received on incoming channels.
+### Token Passing Logic
+
+1. Each process either starts with the token (if it is the starter) or waits for a token to arrive.
+2. Upon receiving a token, the process increments its state (counter) and logs this state.
+3. If a snapshot is triggered (when the process reaches a specific state), the process sends a marker to all its outgoing channels.
+4. The token is passed to the next peer, allowing for continued token circulation.
+
+### Snapshotting Logic
+
+1. When a process receives a marker for the first time, it:
+   - Records its current state.
+   - Closes the incoming channel on which the marker was received.
+   - Sends markers to all outgoing channels.
+2. The process then records any messages that arrive on its remaining open channels.
+3. When all channels are closed (i.e., markers have been received from all peers), the snapshot is complete.
+
 
 ## Application Flow
 
 This implementation integrates the Chandi-Lamport Algorithm within a distributed token-passing system. The key sections of the code are:
 
-- **Initialization and Configuration**: The application reads configuration values, such as the hosts file, debugging flags, snapshot triggers, etc.
+- **Initialization and Connection Establishment**: The application reads configuration values, such as the host file, debugging flags, snapshot triggers, etc.
 - **Pass Token Process**: The processes are interconnected in the form of a ring and pass a token among themselves.
 - **Snapshotting Process**: When triggered, the snapshotting process captures the state of the system.
 
 ## Detailed Breakdown
 
-### 1. Configurations and Initialization
+### 1. Initialization and Connection Establishment
 
 #### 1.1 Configurations
 
@@ -55,6 +68,29 @@ The `PeerManager` keeps track of each process (peer) in the system. Each process
 - **Predecessor**: The peer that sends a token to this process.
 - **Successor**: The peer to which this process sends a token.
 
+#### 1.4. TCP Connection Establishment
+
+```go
+func establishConnections(peerManager *PeerManager, connectionsEstablished chan bool) { ... }
+```
+
+This function is responsible for establishing TCP connections between the processes and stores in PeerManager for further messaging. 
+
+```go
+go func() {
+    for {
+        conn, err := listener.Accept()
+        if err != nil {
+            log.Printf("Error accepting connection: %v\n", err)
+            continue
+        }
+        go HandleConnection(conn, messageReceiverCh)
+    }
+}()
+```
+
+The application listens for incoming connections on a TCP port and spawns a goroutine to handle each incoming connection. Received messages are parsed and placed on the appropriate channel (`tokenMessageCh` and `markerMessageCh`).
+
 ### 2. Token Passing
 
 ```go
@@ -84,29 +120,6 @@ The snapshotting process is responsible for taking consistent global snapshots. 
 
 This function interacts heavily with the `StateManager` to track snapshots.
 
-### 4. Connections
-
-```go
-func establishConnections(peerManager *PeerManager, connectionsEstablished chan bool) { ... }
-```
-
-This function is responsible for establishing TCP connections between the processes and stores in PeerManager for further messaging. 
-
-```go
-go func() {
-    for {
-        conn, err := listener.Accept()
-        if err != nil {
-            log.Printf("Error accepting connection: %v\n", err)
-            continue
-        }
-        go HandleConnection(conn, messageReceiverCh)
-    }
-}()
-```
-
-The application listens for incoming connections on a TCP port and spawns a goroutine to handle each incoming connection. Received messages are parsed and placed on the appropriate channel (`tokenMessageCh` and `markerMessageCh`).
-
 ## Supplementary Files
 
 ### 1. **`peerManager.go`**
@@ -131,24 +144,6 @@ The application listens for incoming connections on a TCP port and spawns a goro
 
 These files provide the necessary components and utilities to support the main `Chandi-Lamport` algorithm implementation, focusing on peer management, queue handling, state/snapshot management, and TCP communication.
 
-## Key Algorithmic Logic
-
-### Token Passing Logic
-
-1. Each process either starts with the token (if it is the starter) or waits for a token to arrive.
-2. Upon receiving a token, the process increments its state (counter) and logs this state.
-3. If a snapshot is triggered (when the process reaches a specific state), the process sends a marker to all its outgoing channels.
-4. The token is passed to the next peer, allowing for continued token circulation.
-
-### Snapshotting Logic
-
-1. When a process receives a marker for the first time, it:
-   - Records its current state.
-   - Closes the incoming channel on which the marker was received.
-   - Sends markers to all outgoing channels.
-2. The process then records any messages that arrive on its remaining open channels.
-3. When all channels are closed (i.e., markers have been received from all peers), the snapshot is complete.
-
 ### Log Format
 
 The application logs the following information:
@@ -171,13 +166,3 @@ Sample log entry:
 ### Handling Snapshot Completeness
 
 A snapshot is complete when all incoming channels have been closed, i.e., markers have been received from all connected processes. The `StateManager` monitors the state of each snapshot and logs when a snapshot is finished.
-
-## Customization of the Algorithm
-
-In this implementation, the algorithm uses:
-
-1. **TCP Communication**: Processes communicate over TCP using custom message structures.
-2. **Token Delay**: A configurable delay can be introduced between token passes to simulate work.
-3. **Marker Delay**: A delay can also be introduced when sending markers to simulate time spent on recording states.
-
-The application terminates after a given timeout (5 min by default, can be customized).
