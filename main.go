@@ -180,7 +180,7 @@ func snapshotting(stateManager *StateManager, peerManager *PeerManager, markerMe
 					}
 				} else {
 					// Start the snapshot
-					stateManager.InitiateSnapshot(marker.SnapshotID)
+					snap := stateManager.InitiateSnapshot(marker.SnapshotID)
 					log.Printf("{proc_id:%v, snapshot_id: %v, snapshot:\"started\"}", selfId, marker.SnapshotID)
 
 					// Block the channel for the sender
@@ -207,7 +207,7 @@ func snapshotting(stateManager *StateManager, peerManager *PeerManager, markerMe
 								hasToken = "YES"
 							}
 							log.Printf("{proc_id:%v, snapshot_id: %v, sender:%v, receiver:%v, msg:\"marker\", state:%v, has_token:%v}\n",
-								selfId, marker.SnapshotID, selfId, peer.ID, stateManager.GetCurrentState().Counter, hasToken)
+								selfId, marker.SnapshotID, selfId, peer.ID, snap.State.Counter, hasToken)
 						}
 					}
 
