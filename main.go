@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"encoding/binary"
 	"flag"
 	"fmt"
 	"log"
@@ -113,9 +114,9 @@ func passToken(stateManager *StateManager, peerManager *PeerManager, tokenMessag
 			stateManager.SetHasToken(true)
 			selfId := peerManager.GetSelfID()
 
-			if msg.SenderID != 0 { // Dont print for the starter
+			if msg.Header.SenderID != 0 { // Dont print for the starter
 				log.Printf("{proc_id: %v,  sender: %v, receiver: %v, message: \"token\"}\n",
-					selfId, msg.SenderID, selfId)
+					selfId, msg.Header.SenderID, selfId)
 			}
 
 			stateManager.IncrementCounter()
@@ -124,28 +125,29 @@ func passToken(stateManager *StateManager, peerManager *PeerManager, tokenMessag
 			log.Printf("{proc_id: %v,  state: %v}\n", selfId, currentStateCounter)
 
 			if config.StateSnapshot != 0 && currentStateCounter == config.StateSnapshot {
+				payload := make([]byte, 4)
+				binary.BigEndian.PutUint32(payload, uint32(config.SnapshotId))
 				markerMessageCh <- &Message{
-					SenderID: 0,
-					Content: &Marker{
-						SnapshotID: config.SnapshotId,
+					Header: MessageHeader{
+						SenderID:    0,
+						MessageType: MARKER,
+						PayloadSize: int32(len(payload)),
 					},
+					Payload: payload,
 				}
 			}
 
 			// Add to queue if necessary
 			for id, snapshot := range stateManager.GetSnapshots() {
-				if !snapshot.Complete && !snapshot.Queues[msg.SenderID].IsBlocked() {
-					stateManager.RecordMessageInSnapshot(id, msg.SenderID, msg.Content)
+				if !snapshot.Complete && !snapshot.Queues[int(msg.Header.SenderID)].IsBlocked() {
+					stateManager.RecordMessageInSnapshot(id, int(msg.Header.SenderID), "token")
 				}
 			}
 
 			time.Sleep(time.Duration(config.TokenDelay * float64(time.Second))) // Sleep - Mimic for some work
 
 			if peer, ok := peerManager.GetNextPeer(); ok {
-				err := SendMessage(peer.Conn, &Message{
-					SenderID: selfId,
-					Content:  config.TokenMessage,
-				})
+				err := SendToken(peer.Conn, selfId)
 				if err != nil {
 					log.Printf("Failed to send Token Message: %v\n", err.Error())
 				} else {
@@ -164,54 +166,51 @@ func snapshotting(stateManager *StateManager, peerManager *PeerManager, markerMe
 		case <-ctx.Done():
 			return
 		case msg := <-markerMessages:
-			if marker, ok := msg.Content.(*Marker); ok {
-				selfId := peerManager.GetSelfID()
-				if snap, ok := stateManager.GetSnapshot(marker.SnapshotID); ok {
-					// Block the channel for the sender
-					err := stateManager.CloseChannelInSnapshot(marker.SnapshotID, msg.SenderID)
-					if err == nil {
-						log.Printf("{proc_id:%v, snapshot_id: %v, snapshot:\"channel closed\", channel:%v-%v, queue:[%v]}\n",
-							selfId, marker.SnapshotID, msg.SenderID, selfId, snap.Queues[msg.SenderID].GetCommaSepratedValues())
-					}
-					// Check if all the channels are closed
-					if stateManager.IsSnapshotComplete(snap.ID, peerManager.GetPeerCount()) {
-						log.Printf("{proc_id:%v, snapshot_id: %v, snapshot:\"complete\"}\n",
-							selfId, marker.SnapshotID)
-					}
-				} else {
-					// Start the snapshot
-					snap := stateManager.InitiateSnapshot(marker.SnapshotID)
-					log.Printf("{proc_id:%v, snapshot_id: %v, snapshot:\"started\"}", selfId, marker.SnapshotID)
-
-					// Block the channel for the sender
-					err := stateManager.CloseChannelInSnapshot(marker.SnapshotID, msg.SenderID)
-					if err == nil {
-						log.Printf("{proc_id:%v, snapshot_id: %v, snapshot:\"channel closed\", channel:%v-%v, queue:[]}\n",
-							selfId, marker.SnapshotID, msg.SenderID, selfId)
-					}
-
-					time.Sleep(time.Duration(config.MarkerDelay * float64(time.Second))) // Sleep - Mimic for some work
-					// Send marker to all peers
-					for _, peer := range peerManager.GetPeers() {
-						err := SendMessage(peer.Conn, &Message{
-							SenderID: selfId,
-							Content: &Marker{
-								SnapshotID: marker.SnapshotID,
-							},
-						})
-						if err != nil {
-							log.Printf("Failed to send Marker Message: %v\n", err.Error())
-						} else {
-							hasToken := "NO"
-							if stateManager.GetHasToken() {
-								hasToken = "YES"
-							}
-							log.Printf("{proc_id:%v, snapshot_id: %v, sender:%v, receiver:%v, msg:\"marker\", state:%v, has_token:%v}\n",
-								selfId, marker.SnapshotID, selfId, peer.ID, snap.State.Counter, hasToken)
-						}
-					}
-
+			selfId := peerManager.GetSelfID()
+			snapshotID, err := ParseMarkerPayload(msg.Payload)
+			if err != nil {
+				log.Printf("Failed to parse Marker Message: %v\n", err.Error())
+			}
+			if snap, ok := stateManager.GetSnapshot(snapshotID); ok {
+				// Block the channel for the sender
+				err := stateManager.CloseChannelInSnapshot(snapshotID, int(msg.Header.SenderID))
+				if err == nil {
+					log.Printf("{proc_id:%v, snapshot_id: %v, snapshot:\"channel closed\", channel:%v-%v, queue:[%v]}\n",
+						selfId, snapshotID, int(msg.Header.SenderID), selfId, snap.Queues[int(msg.Header.SenderID)].GetCommaSepratedValues())
 				}
+				// Check if all the channels are closed
+				if stateManager.IsSnapshotComplete(snap.ID, peerManager.GetPeerCount()) {
+					log.Printf("{proc_id:%v, snapshot_id: %v, snapshot:\"complete\"}\n",
+						selfId, snapshotID)
+				}
+			} else {
+				// Start the snapshot
+				snap := stateManager.InitiateSnapshot(snapshotID)
+				log.Printf("{proc_id:%v, snapshot_id: %v, snapshot:\"started\"}", selfId, snapshotID)
+
+				// Block the channel for the sender
+				err := stateManager.CloseChannelInSnapshot(snapshotID, int(msg.Header.SenderID))
+				if err == nil {
+					log.Printf("{proc_id:%v, snapshot_id: %v, snapshot:\"channel closed\", channel:%v-%v, queue:[]}\n",
+						selfId, snapshotID, int(msg.Header.SenderID), selfId)
+				}
+
+				time.Sleep(time.Duration(config.MarkerDelay * float64(time.Second))) // Sleep - Mimic for some work
+				// Send marker to all peers
+				for _, peer := range peerManager.GetPeers() {
+					err := SendMarker(peer.Conn, selfId, snapshotID)
+					if err != nil {
+						log.Printf("Failed to send Marker Message: %v\n", err.Error())
+					} else {
+						hasToken := "NO"
+						if stateManager.GetHasToken() {
+							hasToken = "YES"
+						}
+						log.Printf("{proc_id:%v, snapshot_id: %v, sender:%v, receiver:%v, msg:\"marker\", state:%v, has_token:%v}\n",
+							selfId, snapshotID, selfId, peer.ID, snap.State.Counter, hasToken)
+					}
+				}
+
 			}
 		}
 	}
@@ -294,20 +293,22 @@ func main() {
 		case <-connectionsEstablished: // Wait for the connections to get established before sending any messages
 			if config.Starter { // Start passing the token
 				tokenMessageCh <- &Message{
-					SenderID: 0,
-					Content:  "STARTER",
+					Header: MessageHeader{
+						SenderID:    0,
+						MessageType: TOKEN,
+						PayloadSize: 0,
+					},
+					Payload: nil,
 				}
 			}
 		case msg := <-messageReceiverCh:
-			switch content := msg.Content.(type) {
-			case *Marker:
+			switch msg.Header.MessageType {
+			case TOKEN:
+				tokenMessageCh <- msg
+			case MARKER:
 				markerMessageCh <- msg
-			case string:
-				if content == config.TokenMessage {
-					tokenMessageCh <- msg
-				}
 			default:
-				log.Printf("Received unknown message type: %T\n", content)
+				log.Printf("Received unknown message type: %T\n", msg.Header.MessageType)
 			}
 		}
 	}

@@ -1,95 +1,106 @@
 package main
 
 import (
-	"bufio"
-	"encoding/json"
+	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 )
 
+const (
+	TOKEN  = 1
+	MARKER = 2
+)
+
+type MessageHeader struct {
+	SenderID    int32
+	MessageType int32
+	PayloadSize int32
+}
+
 type Message struct {
-	SenderID int         `json:"SenderID"`
-	Content  interface{} `json:"Content"`
+	Header  MessageHeader
+	Payload []byte
 }
 
 type Marker struct {
-	SnapshotID int `json:"SnapshotID"`
+	SnapshotID int32
 }
 
-func SendMessage(conn net.Conn, message *Message) error {
+func SendMessage(conn net.Conn, senderID int, messageType int, payload []byte) error {
 	if conn == nil {
 		return errors.New("connection is nil")
 	}
 
-	jsonData, err := json.Marshal(message)
+	header := MessageHeader{
+		SenderID:    int32(senderID),
+		MessageType: int32(messageType),
+		PayloadSize: int32(len(payload)),
+	}
+
+	err := binary.Write(conn, binary.BigEndian, &header)
 	if err != nil {
-		return fmt.Errorf("error marshaling message: %v", err)
+		return fmt.Errorf("error writing header: %v", err)
 	}
 
-	_, err = conn.Write(append(jsonData, '\n'))
-	return err
-}
-
-func (m *Message) UnmarshalJSON(data []byte) error {
-	var raw struct {
-		SenderID int             `json:"SenderId"`
-		Content  json.RawMessage `json:"Content"`
-	}
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return err
-	}
-	m.SenderID = raw.SenderID
-
-	var marker Marker
-	if err := json.Unmarshal(raw.Content, &marker); err == nil {
-		m.Content = &marker
-		return nil
+	_, err = conn.Write(payload)
+	if err != nil {
+		return fmt.Errorf("error writing payload: %v", err)
 	}
 
-	var strContent string
-	if err := json.Unmarshal(raw.Content, &strContent); err == nil {
-		m.Content = strContent
-		return nil
-	}
-
-	m.Content = raw.Content
 	return nil
 }
 
-func ReadMessage(conn net.Conn) (int, interface{}, error) {
+func ReadMessage(conn net.Conn) (*Message, error) {
 	if conn == nil {
-		return 0, nil, errors.New("connection is nil")
+		return nil, errors.New("connection is nil")
 	}
 
-	reader := bufio.NewReader(conn)
-	jsonData, err := reader.ReadBytes('\n')
+	var header MessageHeader
+	err := binary.Read(conn, binary.BigEndian, &header)
 	if err != nil {
-		return 0, nil, fmt.Errorf("error reading message: %v", err)
+		return nil, fmt.Errorf("error reading header: %v", err)
 	}
 
-	var message Message
-	err = json.Unmarshal(jsonData, &message)
+	payload := make([]byte, header.PayloadSize)
+	_, err = io.ReadFull(conn, payload)
 	if err != nil {
-		return 0, nil, fmt.Errorf("error unmarshaling message: %v", err)
+		return nil, fmt.Errorf("error reading payload: %v", err)
 	}
 
-	return message.SenderID, message.Content, nil
+	return &Message{Header: header, Payload: payload}, nil
 }
 
 func HandleConnection(conn net.Conn, receiveCh chan<- *Message) {
 	defer conn.Close()
 
 	for {
-		senderId, content, err := ReadMessage(conn)
+		msg, err := ReadMessage(conn)
 		if err != nil {
+			if err != io.EOF {
+				fmt.Printf("Error reading message: %v\n", err)
+			}
 			return
 		}
 
-		// Send the received message to the channel
-		receiveCh <- &Message{
-			SenderID: senderId,
-			Content:  content,
-		}
+		receiveCh <- msg
 	}
+}
+
+func SendToken(conn net.Conn, senderID int) error {
+	return SendMessage(conn, senderID, TOKEN, nil)
+}
+
+func SendMarker(conn net.Conn, senderID int, snapshotID int) error {
+	payload := make([]byte, 4)
+	binary.BigEndian.PutUint32(payload, uint32(snapshotID))
+	return SendMessage(conn, senderID, MARKER, payload)
+}
+
+func ParseMarkerPayload(payload []byte) (int, error) {
+	if len(payload) != 4 {
+		return 0, errors.New("invalid marker payload size")
+	}
+	return int(binary.BigEndian.Uint32(payload)), nil
 }
