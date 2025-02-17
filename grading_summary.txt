@@ -1,0 +1,30 @@
+Grading Summary
+===============
+Generated at: 2025-02-16 23:09:57
+Project: prj2
+Submission Path: /Users/akshaygunjursuryaprakash/Desktop/DistributedSystemsGrader/submissions/lab2/test-submissions/lab2
+Scenarios run: 1,2,3,4,5
+
+Files generated:
+  Scenario 1:
+    - results_scenario_1.txt
+    - out_scenario_1.txt
+    - out_scenario_1.err
+  Scenario 2:
+    - results_scenario_2.txt
+    - out_scenario_2.txt
+    - out_scenario_2.err
+  Scenario 3:
+    - results_scenario_3.txt
+    - out_scenario_3.txt
+    - out_scenario_3.err
+  Scenario 4:
+    - results_scenario_4.txt
+    - out_scenario_4.txt
+    - out_scenario_4.err
+  Scenario 5:
+    - results_scenario_5.txt
+    - out_scenario_5.txt
+    - out_scenario_5.err
+
+Note: Check individual scenario files for detailed results

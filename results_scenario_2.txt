@@ -1,0 +1,55 @@
+=== Scenario 2 ===
+Start Time: 2025-02-16 23:09:53
+Project: prj2
+Submission Directory: /Users/akshaygunjursuryaprakash/Desktop/DistributedSystemsGrader/submissions/lab2/test-submissions/lab2
+=======================================
+AUTOGRADER OUTPUT:
+=======================================
+[0;32mStarting testcase 2...[0m
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 220B done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/golang:1.17-alpine
+#2 DONE 0.2s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 2B done
+#3 DONE 0.0s
+
+#4 [1/4] FROM docker.io/library/golang:1.17-alpine@sha256:99ddec1bbfd6d6bca3f9804c02363daee8c8524dae50df7942e8e60788fd17c9
+#4 resolve docker.io/library/golang:1.17-alpine@sha256:99ddec1bbfd6d6bca3f9804c02363daee8c8524dae50df7942e8e60788fd17c9 done
+#4 DONE 0.0s
+
+#5 [internal] load build context
+#5 transferring context: 9.08kB done
+#5 DONE 0.0s
+
+#6 [2/4] WORKDIR /app
+#6 CACHED
+
+#7 [3/4] COPY . .
+#7 DONE 0.0s
+
+#8 [4/4] RUN go build -o chandyLamport main.go peerManager.go tcpCommunication.go queue.go stateManager.go
+#8 DONE 0.3s
+
+#9 exporting to image
+#9 exporting layers 0.1s done
+#9 exporting manifest sha256:b6debb62ae79b5ed4aade5d50e0d41715dc1d629b240032391f6ad7e4da7a325
+#9 exporting manifest sha256:b6debb62ae79b5ed4aade5d50e0d41715dc1d629b240032391f6ad7e4da7a325 done
+#9 exporting config sha256:1f57cbb81018e5eeed305a55a96fe589fa44002e4efda6043572d39c80fd7ab1 done
+#9 exporting attestation manifest sha256:41dcb86af092ec28e4f41feda1211f645af48597a1fcecc5abc473ef78b55dd4 done
+#9 exporting manifest list sha256:80e829e68512486f8d5b88e6f3fff495dcc8b234387c1327ec15b9251f0a2370 done
+#9 naming to docker.io/library/prj2:latest done
+#9 unpacking to docker.io/library/prj2:latest 0.0s done
+#9 DONE 0.2s
+
+View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/b0clz1ijmjj8w9ioe1zc2itqg
+[0;32mprj2/testcases[0m
+WARNING: Autograder encountered an error
+=======================================
+End Time: 2025-02-16 23:09:54
+=======================================

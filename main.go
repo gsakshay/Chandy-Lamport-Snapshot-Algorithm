@@ -114,15 +114,15 @@ func passToken(stateManager *StateManager, peerManager *PeerManager, tokenMessag
 			stateManager.SetHasToken(true)
 			selfId := peerManager.GetSelfID()
 
-			if msg.Header.SenderID != 0 { // Dont print for the starter
-				log.Printf("{proc_id: %v,  sender: %v, receiver: %v, message: \"token\"}\n",
-					selfId, msg.Header.SenderID, selfId)
-			}
-
 			stateManager.IncrementCounter()
 			currentStateCounter := stateManager.GetCurrentState().Counter
 
-			log.Printf("{proc_id: %v,  state: %v}\n", selfId, currentStateCounter)
+			if msg.Header.SenderID != 0 { // Dont print for the starter
+				log.Printf("{proc_id: %v,  sender: %v, receiver: %v, message: \"token\"}\n",
+					selfId, msg.Header.SenderID, selfId)
+				log.Printf("{proc_id: %v,  state: %v}\n", selfId, currentStateCounter)
+
+			}
 
 			if config.StateSnapshot != 0 && currentStateCounter == config.StateSnapshot {
 				payload := make([]byte, 4)

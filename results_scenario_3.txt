@@ -1,0 +1,55 @@
+=== Scenario 3 ===
+Start Time: 2025-02-16 23:09:54
+Project: prj2
+Submission Directory: /Users/akshaygunjursuryaprakash/Desktop/DistributedSystemsGrader/submissions/lab2/test-submissions/lab2
+=======================================
+AUTOGRADER OUTPUT:
+=======================================
+[0;32mStarting testcase 3...[0m
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 220B done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/golang:1.17-alpine
+#2 DONE 0.2s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 2B done
+#3 DONE 0.0s
+
+#4 [1/4] FROM docker.io/library/golang:1.17-alpine@sha256:99ddec1bbfd6d6bca3f9804c02363daee8c8524dae50df7942e8e60788fd17c9
+#4 resolve docker.io/library/golang:1.17-alpine@sha256:99ddec1bbfd6d6bca3f9804c02363daee8c8524dae50df7942e8e60788fd17c9 0.0s done
+#4 DONE 0.0s
+
+#5 [internal] load build context
+#5 transferring context: 9.03kB 0.0s done
+#5 DONE 0.0s
+
+#6 [2/4] WORKDIR /app
+#6 CACHED
+
+#7 [3/4] COPY . .
+#7 DONE 0.0s
+
+#8 [4/4] RUN go build -o chandyLamport main.go peerManager.go tcpCommunication.go queue.go stateManager.go
+#8 DONE 0.3s
+
+#9 exporting to image
+#9 exporting layers 0.1s done
+#9 exporting manifest sha256:5985963dd9451e1acb2ea1139e5b62ae51882440fcf8425ab9eceddcb1a530f6
+#9 exporting manifest sha256:5985963dd9451e1acb2ea1139e5b62ae51882440fcf8425ab9eceddcb1a530f6 done
+#9 exporting config sha256:1f1925afc230b441a24bad5a1e7e0f7d0fbc3c8b02bb8fb0c7b2ca082b0d6d5c done
+#9 exporting attestation manifest sha256:cab63662335dcff0c04166995fb64fc3aa7d620f017314f6543c7f9defa8f258 done
+#9 exporting manifest list sha256:955f2afbcc95a0c07f7adebc0106f5fb4025fafbb547c9cec5cc8a7fb1bc768f done
+#9 naming to docker.io/library/prj2:latest done
+#9 unpacking to docker.io/library/prj2:latest 0.0s done
+#9 DONE 0.2s
+
+View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/4erkkw73bwt75iba9xkppziyz
+[0;32mprj2/testcases[0m
+WARNING: Autograder encountered an error
+=======================================
+End Time: 2025-02-16 23:09:55
+=======================================
